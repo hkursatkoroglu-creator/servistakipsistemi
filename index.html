@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Servis Nöbet Takibi</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Temel stil ayarları ve mobil iyileştirmeleri */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Select elementlerinin iOS'ta zoom yapmasını engellemek için */
+        select {
+            font-size: 16px !important;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1em;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Çıktı alınırken grupların bölünmesini engelle */
+        .group-card {
+            break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        
+        const SEED_DATA = [
+            {
+                id: 1,
+                name: "GRUP 1",
+                shortName: "Grup 1",
+                color: "bg-blue-200",
+                headerColor: "bg-blue-300",
+                borderColor: "border-blue-400",
+                teachers: ["Ahmet Bilgin", "Vedat Özdemir", "Mustafa Dost", "Erhan Uçar", "Ünal Gözen"],
+                vehicles: [
+                    { id: 1, driver: "Mehmet Bayraktar", plate: "61 AGH 755" },
+                    { id: 2, driver: "Turan Erdem", plate: "61 AJF 408" },
+                    { id: 3, driver: "Muhammet Şerit", plate: "52 ABV 694" }
+                ]
+            },
+            {
+                id: 2,
+                name: "GRUP 2 ",
+                shortName: "Grup 2",
+                color: "bg-yellow-200",
+                headerColor: "bg-yellow-300",
+                borderColor: "border-yellow-400",
+                teachers: ["Ezgi Fettahoğlu", "Aysun Fettahoğlu", "Ahmet Dağ", "Emine Gedikli", "İlknur S. Kul"],
+                vehicles: [
+                    { id: 1, driver: "Ali Balcı", plate: "61 J 0268" },
+                    { id: 2, driver: "Ali Fuat Bulut", plate: "61 S 3771" },
+                    { id: 3, driver: "Ali Bilgin", plate: "61 S 3315" }
+                ]
+            },
+            {
+                id: 3,
+                name: "GRUP 3 ",
+                shortName: "Grup 3",
+                color: "bg-red-200",
+                headerColor: "bg-red-300",
+                borderColor: "border-red-400",
+                teachers: ["Özge Keleş", "Zeki Eyüpoğlu", "İdris Tomar", "H. Kürşat Köroğlu", "Pınar Cihan", "İhsan Karabulut"],
+                vehicles: [
+                    { id: 1, driver: "Muzaffer Furuncu", plate: "61 S 3827" },
+                    { id: 2, driver: "Şenol Çolak", plate: "61 S 3828" },
+                    { id: 3, driver: "Hasan Furuncu", plate: "61 AHT 483" }
+                ]
+            },
+            {
+                id: 4,
+                name: "GRUP 4 ",
+                shortName: "Grup 4",
+                color: "bg-green-200",
+                headerColor: "bg-green-300",
+                borderColor: "border-green-400",
+                teachers: ["Armağan Can Tekçi", "Derya Sağlam", "Gülşen Çiçek", "Esra Sevencan", "Emine P. Şahin"],
+                vehicles: [
+                    { id: 1, driver: "Melih Sefer", plate: "61 S 3906" },
+                    { id: 2, driver: "Akın Dinç", plate: "61 S 3595" },
+                    { id: 3, driver: "Ahmet Bay", plate: "61 AHH 094" }
+                ]
+            }
+        ];
+
+        const HOURS_IN = ["08:00", "08:05", "08:10", "08:15", "08:20", "08:25", "08:30", "08:35", "08:40"];
+        const HOURS_OUT = ["13:10", "13:15", "13:20", "13:25", "13:30", "13:35", "13:40"];
+        const COUNTS = Array.from({ length: 21 }, (_, i) => i);
+
+        const STORAGE_KEY = "servis-nobet-v1";
+
+
+        // SVG Icons
+        const Icons = {
+            Menu: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>,
+            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
+            Bus: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v10h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+        };
+
+        // Custom Confirm Modal (alert/confirm is forbidden)
+        const ConfirmModal = ({ isOpen, message, onConfirm, onCancel }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-6">
+                        <h3 className="text-lg font-semibold text-gray-900 leading-tight">{message}</h3>
+                        <div className="flex gap-3 justify-end">
+                            <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">İptal</button>
+                            <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700">Evet, Sil</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        function App() {
+            const getTodayString = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+            
+            const [currentDate, setCurrentDate] = React.useState(getTodayString());
+            const [records, setRecords] = React.useState({});
+            const [menuOpen, setMenuOpen] = React.useState(false);
+            const [toast, setToast] = React.useState("");
+            const [confirmDialog, setConfirmDialog] = React.useState({ isOpen: false, action: null });
+            
+            // Load data from local storage on mount
+            React.useEffect(() => {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) setRecords(JSON.parse(saved));
+                } catch (e) {
+                    console.error("Veri yüklenemedi", e);
+                }
+            }, []);
+
+            const showToast = (msg) => {
+                setToast(msg);
+                setTimeout(() => setToast(""), 2000);
+            };
+
+            const handleDataChange = (groupId, vehicleId, field, value) => {
+                setRecords(prev => {
+                    const dayData = prev[currentDate] || {};
+                    const key = `${groupId}_${vehicleId}`;
+                    const vehicleData = dayData[key] || { girisSaat: "", girisSayi: "", cikisSaat: "", cikisSayi: "" };
+                    
+                    const newRecords = {
+                        ...prev,
+                        [currentDate]: {
+                            ...dayData,
+                            [key]: { ...vehicleData, [field]: value }
+                        }
+                    };
+                    
+                    // Save to local storage automatically
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecords));
+                    return newRecords;
+                });
+                showToast("Kaydedildi ✓");
+            };
+
+
+            const getDayRecords = () => records[currentDate] || {};
+
+            const calculateCompletion = () => {
+                const dayData = getDayRecords();
+                let completed = 0;
+                let total = SEED_DATA.length * 3; // 4 groups * 3 vehicles = 12
+
+                SEED_DATA.forEach(group => {
+                    group.vehicles.forEach(v => {
+                        const rec = dayData[`${group.id}_${v.id}`];
+                        if (rec && rec.girisSaat !== "" && rec.girisSayi !== "" && rec.cikisSaat !== "" && rec.cikisSayi !== "") {
+                            completed++;
+                        }
+                    });
+                });
+                return { completed, total };
+            };
+
+            const resetDay = () => {
+                setRecords(prev => {
+                    const newRecords = { ...prev };
+                    delete newRecords[currentDate];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecords));
+                    return newRecords;
+                });
+                setMenuOpen(false);
+                showToast("Gün sıfırlandı");
+            };
+
+            const copySummary = () => {
+                const dayData = getDayRecords();
+                let summary = `Tarih: ${new Date(currentDate).toLocaleDateString('tr-TR')} | Nöbet Özeti\n\n`;
+
+                SEED_DATA.forEach(group => {
+                    summary += `=== ${group.name} ===\n`;
+                    summary += `Öğretmenler: ${group.teachers.join(', ')}\n`;
+                    group.vehicles.forEach(v => {
+                        const r = dayData[`${group.id}_${v.id}`] || {};
+                        const gS = r.girisSaat || "—";
+                        const gSy = r.girisSayi !== undefined && r.girisSayi !== "" ? r.girisSayi : "—";
+                        const cS = r.cikisSaat || "—";
+                        const cSy = r.cikisSayi !== undefined && r.cikisSayi !== "" ? r.cikisSayi : "—";
+                        
+                        summary += `${v.id}. ${v.driver} (${v.plate}) -> Giriş: ${gS} / ${gSy} öğr. | Çıkış: ${cS} / ${cSy} öğr.\n`;
+                    });
+                    summary += `\n`;
+                });
+
+                navigator.clipboard.writeText(summary).then(() => {
+                    showToast("Özet kopyalandı ✓");
+                }).catch(err => {
+                    // Fallback for iframe restrictions
+                    const textArea = document.createElement("textarea");
+                    textArea.value = summary;
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        showToast("Özet kopyalandı ✓");
+                    } catch (err) {
+                        showToast("Kopyalama başarısız");
+                    }
+                    document.body.removeChild(textArea);
+                });
+                setMenuOpen(false);
+            };
+
+            const downloadCSV = () => {
+                const dayData = getDayRecords();
+                // Add BOM for UTF-8 Excel support
+                let csvContent = "\uFEFFTarih,Grup,Nöbetçi Öğretmenler,Şoför,Plaka,Giriş Saat,Giriş Sayı,Çıkış Saat,Çıkış Sayı\n";
+                const displayDate = new Date(currentDate).toLocaleDateString('tr-TR');
+
+                SEED_DATA.forEach(group => {
+                    const teachers = group.teachers.join(" - ");
+                    group.vehicles.forEach(v => {
+                        const r = dayData[`${group.id}_${v.id}`] || {};
+                        const row = [
+                            displayDate,
+                            `"${group.name}"`,
+                            `"${teachers}"`,
+                            `"${v.driver}"`,
+                            `"${v.plate}"`,
+                            r.girisSaat || "-",
+                            r.girisSayi || "-",
+                            r.cikisSaat || "-",
+                            r.cikisSayi || "-"
+                        ].join(",");
+                        csvContent += row + "\n";
+                    });
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `Nobet_${currentDate}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setMenuOpen(false);
+            };
+
+            const backupJSON = () => {
+                const dataStr = JSON.stringify(records, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `Nobet_Yedek_${new Date().toISOString().slice(0,10)}.json`;
+                link.click();
+                setMenuOpen(false);
+            };
+
+            
+            const { completed, total } = calculateCompletion();
+            
+            // Helper component for Select inputs
+            const SelectBox = ({ value, options, onChange, label }) => (
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-500 font-medium mb-1 tracking-wider">{label}</span>
+                    <select 
+                        value={value} 
+                        onChange={e => onChange(e.target.value)}
+                        className="w-full bg-white border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px] shadow-sm transition-all"
+                    >
+                        <option value="">—</option>
+                        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                </div>
+            );
+
+            return (
+                <div className="max-w-[480px] mx-auto bg-slate-50 min-h-screen relative shadow-2xl flex flex-col">
+                    
+                    {/* Header: Sticky Top Bar */}
+                    <div className="sticky top-0 z-30 bg-slate-900 text-white shadow-md">
+                        <div className="flex items-center justify-between p-3">
+                            <div className="flex flex-col">
+                                <label className="text-xs text-slate-400 font-medium mb-1">Tarih Seçimi</label>
+                                <input 
+                                    type="date" 
+                                    value={currentDate} 
+                                    onChange={(e) => setCurrentDate(e.target.value)}
+                                    className="bg-slate-800 text-white border-none rounded-lg px-2 py-1.5 text-sm min-h-[40px] focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col items-end">
+                                    <span className="text-xs text-slate-400">Tamamlanan</span>
+                                    <span className="text-sm font-bold bg-slate-800 px-2 py-1 rounded-md">
+                                        <span className={completed === total ? "text-green-400" : "text-blue-400"}>{completed}</span>
+                                        <span className="text-slate-500">/{total}</span>
+                                    </span>
+                                </div>
+                                
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setMenuOpen(!menuOpen)}
+                                        className="p-2 bg-slate-800 rounded-lg active:bg-slate-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                    >
+                                        <Icons.Menu />
+                                    </button>
+                                    
+                                    {menuOpen && (
+                                        <div className="absolute right-0 top-12 mt-1 w-56 bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100 z-40 text-sm text-gray-700">
+                                            <button onClick={copySummary} className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-gray-50 flex items-center gap-2">
+                                                Özeti Kopyala
+                                            </button>
+                                            <button onClick={downloadCSV} className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-gray-50">
+                                                Seçili Günü CSV İndir
+                                            </button>
+                                            <button onClick={backupJSON} className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-gray-50">
+                                                Tüm Veriyi JSON Yedekle
+                                            </button>
+                                            <button 
+                                                onClick={() => setConfirmDialog({ isOpen: true, action: resetDay })}
+                                                className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 font-medium"
+                                            >
+                                                Günü Sıfırla
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Quick Navigation Tabs */}
+                        <div className="flex bg-slate-800 p-2 gap-2 overflow-x-auto hide-scrollbar">
+                            {SEED_DATA.map(group => (
+                                <button 
+                                    key={`tab-${group.id}`}
+                                    onClick={() => document.getElementById(`group-${group.id}`).scrollIntoView({ behavior: 'smooth' })}
+                                    className={`${group.color} text-slate-800 text-xs font-bold px-3 py-2 rounded-lg flex-1 min-w-[70px] text-center border-b-2 ${group.borderColor} active:opacity-80`}
+                                >
+                                    {group.shortName}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Toast Notification */}
+                    {toast && (
+                        <div className="fixed top-32 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium z-50 flex items-center gap-2 animate-bounce">
+                            <Icons.Check /> {toast}
+                        </div>
+                    )}
+
+                    
+                    {/* Main Content: Group Cards */}
+                    <div className="p-3 space-y-4 pb-12 flex-1">
+                        {SEED_DATA.map((group) => {
+                            const dayData = getDayRecords();
+                            
+                            return (
+                                <div key={group.id} id={`group-${group.id}`} className={`group-card ${group.color} rounded-2xl border-2 ${group.borderColor} shadow-sm overflow-hidden`}>
+                                    
+                                    {/* Group Header & Teachers (Fixed Block) */}
+                                    <div className={`${group.headerColor} p-4 border-b-2 ${group.borderColor}`}>
+                                        <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                                            {group.name}
+                                        </h2>
+                                        <div className="mt-2 bg-white bg-opacity-60 rounded-xl p-3">
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Nöbetçi Öğretmenler</p>
+                                            <p className="text-sm font-semibold text-slate-800 leading-snug">
+                                                {group.teachers.join(" • ")}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Vehicles List */}
+                                    <div className="p-2 space-y-2">
+                                        {group.vehicles.map((v) => {
+                                            const rec = dayData[`${group.id}_${v.id}`] || { girisSaat: "", girisSayi: "", cikisSaat: "", cikisSayi: "" };
+                                            const isComplete = rec.girisSaat !== "" && rec.girisSayi !== "" && rec.cikisSaat !== "" && rec.cikisSayi !== "";
+                                            
+                                            return (
+                                                <div key={v.id} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+                                                    
+                                                    {/* Driver Info */}
+                                                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`w-6 h-6 rounded-full ${group.headerColor} flex items-center justify-center text-xs font-bold text-slate-800`}>
+                                                                {v.id}
+                                                            </span>
+                                                            <span className="font-bold text-slate-800 text-sm">{v.driver}</span>
+                                                        </div>
+                                                        <span className="bg-slate-100 border border-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-mono font-bold whitespace-nowrap">
+                                                            {v.plate}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* 2x2 Grid for Inputs */}
+                                                    <div className="grid grid-cols-2 gap-4 relative">
+                                                        {/* Separator line */}
+                                                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-100 -ml-px"></div>
+                                                        
+                                                        {/* SABAH GİRİŞ */}
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-xs font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                                                                <span className="w-2 h-2 rounded-full bg-blue-400"></span> SABAH · GİRİŞ
+                                                            </h4>
+                                                            <SelectBox 
+                                                                label="SAAT"
+                                                                options={HOURS_IN}
+                                                                value={rec.girisSaat}
+                                                                onChange={(val) => handleDataChange(group.id, v.id, 'girisSaat', val)}
+                                                            />
+                                                            <SelectBox 
+                                                                label="ÖĞRENCİ SAYISI"
+                                                                options={COUNTS}
+                                                                value={rec.girisSayi}
+                                                                onChange={(val) => handleDataChange(group.id, v.id, 'girisSayi', val)}
+                                                            />
+                                                        </div>
+
+                                                        {/* ÖĞLEN ÇIKIŞ */}
+                                                        <div className="space-y-3">
+                                                            <h4 className="text-xs font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                                                                <span className="w-2 h-2 rounded-full bg-orange-400"></span> ÖĞLEN · ÇIKIŞ
+                                                            </h4>
+                                                            <SelectBox 
+                                                                label="SAAT"
+                                                                options={HOURS_OUT}
+                                                                value={rec.cikisSaat}
+                                                                onChange={(val) => handleDataChange(group.id, v.id, 'cikisSaat', val)}
+                                                            />
+                                                            <SelectBox 
+                                                                label="ÖĞRENCİ SAYISI"
+                                                                options={COUNTS}
+                                                                value={rec.cikisSayi}
+                                                                onChange={(val) => handleDataChange(group.id, v.id, 'cikisSayi', val)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Status indicator for the vehicle */}
+                                                    <div className={`mt-3 pt-2 text-right border-t border-gray-50 flex items-center justify-end gap-1 text-[11px] font-bold ${isComplete ? 'text-green-600' : 'text-slate-400'}`}>
+                                                        {isComplete ? <><Icons.Check /> TAMAMLANDI</> : 'EKSİK GİRİŞ'}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <ConfirmModal 
+                        isOpen={confirmDialog.isOpen}
+                        message="Bu tarihteki tüm veriler silinecek. Emin misiniz?"
+                        onConfirm={() => {
+                            if(confirmDialog.action) confirmDialog.action();
+                            setConfirmDialog({ isOpen: false, action: null });
+                        }}
+                        onCancel={() => setConfirmDialog({ isOpen: false, action: null })}
+                    />
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
